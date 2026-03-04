@@ -1,6 +1,9 @@
 import curses
 import subprocess
 import shutil
+import argparse
+
+WAZUH_MODE: bool = False
 
 
 def _apply_resize(stdscr: curses.window) -> None:
@@ -30,22 +33,20 @@ ICON_EMPTY = "\uf49e"
 
 OS_GRID: dict[str, list[str]] = {
     "Ubuntu \uf31b": [
+        "25.10 (questing)",
+        "25.04 (plucky)",
         "24.04 (noble)",
         "22.04 (jammy)",
-        "20.04 (focal)",
-        "18.04 (bionic)",
     ],
     "Debian \uf306": [
+        "14 (forky)",
         "13 (trixie)",
         "12 (bookworm)",
         "11 (bullseye)",
-        "10 (buster)",
     ],
     "CentOS \uf304": [
         "10-Stream",
         "9-Stream",
-        "8-Stream",
-        "7",
     ],
     "Fedora \uf30a": [
         "43",
@@ -64,7 +65,6 @@ OS_GRID: dict[str, list[str]] = {
     ],
     "Amazon \uf270": [
         "2023",
-        "2",
     ],
     "openSUSE \uf314": [
         "16",
@@ -74,22 +74,20 @@ OS_GRID: dict[str, list[str]] = {
 
 IMAGE_ALIASES: dict[str, dict[str, str]] = {
     "Ubuntu \uf31b": {
+        "25.10 (questing)": "images:ubuntu/questing",
+        "25.04 (plucky)": "images:ubuntu/plucky",
         "24.04 (noble)": "images:ubuntu/noble",
         "22.04 (jammy)": "images:ubuntu/jammy",
-        "20.04 (focal)": "images:ubuntu/focal",
-        "18.04 (bionic)": "images:ubuntu/bionic",
     },
     "Debian \uf306": {
+        "14 (forky)": "images:debian/14",
         "13 (trixie)": "images:debian/13",
         "12 (bookworm)": "images:debian/12",
         "11 (bullseye)": "images:debian/11",
-        "10 (buster)": "images:debian/10",
     },
     "CentOS \uf304": {
         "10-Stream": "images:centos/10-Stream",
         "9-Stream": "images:centos/9-Stream",
-        "8-Stream": "images:centos/8-Stream",
-        "7": "images:centos/7",
     },
     "Fedora \uf30a": {
         "43": "images:fedora/43",
@@ -108,7 +106,6 @@ IMAGE_ALIASES: dict[str, dict[str, str]] = {
     },
     "Amazon \uf270": {
         "2023": "images:amazonlinux/2023",
-        "2": "images:amazonlinux/2",
     },
     "openSUSE \uf314": {
         "16": "images:opensuse/16.0",
@@ -755,14 +752,6 @@ def handle_create(stdscr: curses.window) -> None:
                 "-y",
             ]
         )
-    elif "CentOS" in SELECTED_DISTRO and SELECTED_VERSION == "7":
-        COMMANDS_TO_RUN.append(
-            ["incus", "exec", INSTANCE_NAME, "--", "yum", "makecache"]
-        )
-    elif "Amazon" in SELECTED_DISTRO and SELECTED_VERSION == "2":
-        COMMANDS_TO_RUN.append(
-            ["incus", "exec", INSTANCE_NAME, "--", "yum", "makecache"]
-        )
     elif any(
         d in SELECTED_DISTRO
         for d in ("CentOS", "Fedora", "AlmaLinux", "Rocky", "Amazon")
@@ -773,6 +762,105 @@ def handle_create(stdscr: curses.window) -> None:
     elif "openSUSE" in SELECTED_DISTRO:
         COMMANDS_TO_RUN.append(
             ["incus", "exec", INSTANCE_NAME, "--", "zypper", "refresh"]
+        )
+
+    # Wazuh build deps + MOTD (only with --wazuh flag)
+    if WAZUH_MODE:
+        if "Ubuntu" in SELECTED_DISTRO or "Debian" in SELECTED_DISTRO:
+            COMMANDS_TO_RUN.append(
+                [
+                    "incus",
+                    "exec",
+                    INSTANCE_NAME,
+                    "--",
+                    "env",
+                    "DEBIAN_FRONTEND=noninteractive",
+                    "apt-get",
+                    "install",
+                    "-y",
+                    "python3",
+                    "gcc",
+                    "g++",
+                    "make",
+                    "libc6-dev",
+                    "curl",
+                    "policycoreutils",
+                    "automake",
+                    "autoconf",
+                    "libtool",
+                    "libssl-dev",
+                    "procps",
+                    "build-essential",
+                ]
+            )
+        elif any(
+            d in SELECTED_DISTRO
+            for d in ("CentOS", "Fedora", "AlmaLinux", "Rocky", "Amazon")
+        ):
+            COMMANDS_TO_RUN.append(
+                [
+                    "incus",
+                    "exec",
+                    INSTANCE_NAME,
+                    "--",
+                    "dnf",
+                    "install",
+                    "-y",
+                    "python3",
+                    "gcc",
+                    "gcc-c++",
+                    "make",
+                    "glibc-devel",
+                    "curl",
+                    "policycoreutils",
+                    "automake",
+                    "autoconf",
+                    "libtool",
+                    "openssl-devel",
+                    "procps-ng",
+                ]
+            )
+        elif "openSUSE" in SELECTED_DISTRO:
+            COMMANDS_TO_RUN.append(
+                [
+                    "incus",
+                    "exec",
+                    INSTANCE_NAME,
+                    "--",
+                    "zypper",
+                    "install",
+                    "-y",
+                    "python3",
+                    "gcc",
+                    "gcc-c++",
+                    "make",
+                    "glibc-devel",
+                    "curl",
+                    "policycoreutils",
+                    "automake",
+                    "autoconf",
+                    "libtool",
+                    "libopenssl-devel",
+                    "procps",
+                ]
+            )
+
+        MOTD = (
+            "╔══════════════════════════════════════════════════════════════╗\n"
+            "║                  Wazuh Development Container                ║\n"
+            "╠══════════════════════════════════════════════════════════════╣\n"
+            "║  Build dependencies are pre-installed.                      ║\n"
+            "║                                                             ║\n"
+            "║  Quick install (all-in-one):                                ║\n"
+            "║    curl -sO https://packages.wazuh.com/4.14/wazuh-install.sh║\n"
+            "║    sudo bash ./wazuh-install.sh -a                          ║\n"
+            "║                                                             ║\n"
+            "║  Docs: https://documentation.wazuh.com                      ║\n"
+            "╚══════════════════════════════════════════════════════════════╝\n"
+        )
+        MOTD_CMD = f"printf '{MOTD}' > /etc/motd"
+        COMMANDS_TO_RUN.append(
+            ["incus", "exec", INSTANCE_NAME, "--", "sh", "-c", MOTD_CMD]
         )
 
     COMMANDS_TO_RUN.append(["incus", "exec", INSTANCE_NAME, "--", "bash"])
@@ -811,10 +899,14 @@ def handle_instance_action(stdscr: curses.window, ACTION: str) -> None:
         return
 
     SELECTED_INSTANCE: str = INSTANCES[SELECTED_IDX][0]
+    SELECTED_STATE: str = INSTANCES[SELECTED_IDX][3]
     if ACTION == "Enter":
-        run_cli_commands(
-            stdscr, [["incus", "exec", SELECTED_INSTANCE, "--", "bash"]], PAUSE=False
-        )
+        COMMANDS: list[list[str]] = []
+        if SELECTED_STATE != "RUNNING":
+            COMMANDS.append(["echo", f"{ICON_CREATE}  Starting {SELECTED_INSTANCE}..."])
+            COMMANDS.append(["incus", "start", SELECTED_INSTANCE])
+        COMMANDS.append(["incus", "exec", SELECTED_INSTANCE, "--", "bash"])
+        run_cli_commands(stdscr, COMMANDS, PAUSE=False)
     elif ACTION == "Stop":
         run_cli_commands(stdscr, [["incus", "stop", SELECTED_INSTANCE]])
     elif ACTION == "Delete":
@@ -856,4 +948,12 @@ def main_app(stdscr: curses.window) -> None:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Incus container manager TUI")
+    parser.add_argument(
+        "--wazuh",
+        action="store_true",
+        help="Enable Wazuh mode: pre-install build dependencies and write /etc/motd with Wazuh quickstart",
+    )
+    args = parser.parse_args()
+    WAZUH_MODE = args.wazuh
     curses.wrapper(main_app)

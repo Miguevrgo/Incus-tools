@@ -41,42 +41,37 @@ const OS_GRID: &[OsEntry] = &[
     OsEntry {
         name: "Ubuntu \u{f31b}",
         versions: &[
+            "25.10 (questing)",
+            "25.04 (plucky)",
             "24.04 (noble)",
             "22.04 (jammy)",
-            "20.04 (focal)",
-            "18.04 (bionic)",
         ],
         aliases: &[
+            "images:ubuntu/questing",
+            "images:ubuntu/plucky",
             "images:ubuntu/noble",
             "images:ubuntu/jammy",
-            "images:ubuntu/focal",
-            "images:ubuntu/bionic",
         ],
     },
     OsEntry {
         name: "Debian \u{f306}",
         versions: &[
+            "14 (forky)",
             "13 (trixie)",
             "12 (bookworm)",
             "11 (bullseye)",
-            "10 (buster)",
         ],
         aliases: &[
+            "images:debian/14",
             "images:debian/13",
             "images:debian/12",
             "images:debian/11",
-            "images:debian/10",
         ],
     },
     OsEntry {
         name: "CentOS \u{f304}",
-        versions: &["10-Stream", "9-Stream", "8-Stream", "7"],
-        aliases: &[
-            "images:centos/10-Stream",
-            "images:centos/9-Stream",
-            "images:centos/8-Stream",
-            "images:centos/7",
-        ],
+        versions: &["10-Stream", "9-Stream"],
+        aliases: &["images:centos/10-Stream", "images:centos/9-Stream"],
     },
     OsEntry {
         name: "Fedora \u{f30a}",
@@ -103,8 +98,8 @@ const OS_GRID: &[OsEntry] = &[
     },
     OsEntry {
         name: "Amazon \u{f270}",
-        versions: &["2023", "2"],
-        aliases: &["images:amazonlinux/2023", "images:amazonlinux/2"],
+        versions: &["2023"],
+        aliases: &["images:amazonlinux/2023"],
     },
     OsEntry {
         name: "openSUSE \u{f314}",
@@ -1078,7 +1073,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let entry = &OS_GRID[di];
                             let image = entry.aliases[vi];
                             let distro_name = entry.name;
-                            let version_name = entry.versions[vi];
 
                             leave_tui(&mut terminal);
                             let _ = Command::new("clear").status();
@@ -1108,12 +1102,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         "-y",
                                     ])
                                     .status();
-                            } else if (distro_name.contains("CentOS") && version_name == "7")
-                                || (distro_name.contains("Amazon") && version_name == "2")
-                            {
-                                let _ = Command::new("incus")
-                                    .args(["exec", &name, "--", "yum", "makecache"])
-                                    .status();
                             } else if distro_name.contains("CentOS")
                                 || distro_name.contains("Fedora")
                                 || distro_name.contains("AlmaLinux")
@@ -1129,7 +1117,114 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     .status();
                             }
 
-                            // 4. Enter shell
+                            // 4. Wazuh build deps + MOTD (only with --features wazuh)
+                            #[cfg(feature = "wazuh")]
+                            {
+                                // Install build dependencies
+                                if distro_name.contains("Ubuntu") || distro_name.contains("Debian")
+                                {
+                                    let _ = Command::new("incus")
+                                        .args([
+                                            "exec",
+                                            &name,
+                                            "--",
+                                            "env",
+                                            "DEBIAN_FRONTEND=noninteractive",
+                                            "apt-get",
+                                            "install",
+                                            "-y",
+                                            "python3",
+                                            "gcc",
+                                            "g++",
+                                            "make",
+                                            "libc6-dev",
+                                            "curl",
+                                            "policycoreutils",
+                                            "automake",
+                                            "autoconf",
+                                            "libtool",
+                                            "libssl-dev",
+                                            "procps",
+                                            "build-essential",
+                                        ])
+                                        .status();
+                                } else if distro_name.contains("CentOS")
+                                    || distro_name.contains("Fedora")
+                                    || distro_name.contains("AlmaLinux")
+                                    || distro_name.contains("Rocky")
+                                    || distro_name.contains("Amazon")
+                                {
+                                    let _ = Command::new("incus")
+                                        .args([
+                                            "exec",
+                                            &name,
+                                            "--",
+                                            "dnf",
+                                            "install",
+                                            "-y",
+                                            "python3",
+                                            "gcc",
+                                            "gcc-c++",
+                                            "make",
+                                            "glibc-devel",
+                                            "curl",
+                                            "policycoreutils",
+                                            "automake",
+                                            "autoconf",
+                                            "libtool",
+                                            "openssl-devel",
+                                            "procps-ng",
+                                        ])
+                                        .status();
+                                } else if distro_name.contains("openSUSE") {
+                                    let _ = Command::new("incus")
+                                        .args([
+                                            "exec",
+                                            &name,
+                                            "--",
+                                            "zypper",
+                                            "install",
+                                            "-y",
+                                            "python3",
+                                            "gcc",
+                                            "gcc-c++",
+                                            "make",
+                                            "glibc-devel",
+                                            "curl",
+                                            "policycoreutils",
+                                            "automake",
+                                            "autoconf",
+                                            "libtool",
+                                            "libopenssl-devel",
+                                            "procps",
+                                        ])
+                                        .status();
+                                }
+
+                                // Write /etc/motd with Wazuh quickstart
+                                let motd = concat!(
+                                    "╔══════════════════════════════════════════════════════════════╗\n",
+                                    "║                  Wazuh Development Container                ║\n",
+                                    "╠══════════════════════════════════════════════════════════════╣\n",
+                                    "║  Build dependencies are pre-installed.                      ║\n",
+                                    "║                                                             ║\n",
+                                    "║  Quick install (all-in-one):                                ║\n",
+                                    "║    curl -sO https://packages.wazuh.com/4.14/wazuh-install.sh║\n",
+                                    "║    sudo bash ./wazuh-install.sh -a                          ║\n",
+                                    "║                                                             ║\n",
+                                    "║  Docs: https://documentation.wazuh.com                      ║\n",
+                                    "╚══════════════════════════════════════════════════════════════╝\n",
+                                );
+                                let motd_cmd = format!(
+                                    "printf '{}' > /etc/motd",
+                                    motd.replace('\'', "'\\''")
+                                );
+                                let _ = Command::new("incus")
+                                    .args(["exec", &name, "--", "sh", "-c", &motd_cmd])
+                                    .status();
+                            }
+
+                            // 5. Enter shell
                             let _ = Command::new("incus")
                                 .args(["exec", &name, "--", "bash"])
                                 .status();
@@ -1203,8 +1298,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                                 match act.as_str() {
                                     "Enter" => {
+                                        let inst_state = instances[real_idx].state.clone();
                                         leave_tui(&mut terminal);
                                         let _ = Command::new("clear").status();
+                                        if inst_state != "RUNNING" {
+                                            println!(
+                                                "{}  Starting {}...",
+                                                ICON_CREATE, inst_name
+                                            );
+                                            let _ = Command::new("incus")
+                                                .args(["start", &inst_name])
+                                                .status();
+                                        }
                                         let _ = Command::new("incus")
                                             .args(["exec", &inst_name, "--", "bash"])
                                             .status();
