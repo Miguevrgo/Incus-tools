@@ -33,10 +33,15 @@ A keyboard-driven Terminal UI (TUI) for managing [Incus](https://linuxcontainers
 ### Rust (recommended)
 
 ```bash
-cargo build --release
+RUSTFLAGS="-C target-cpu=native" cargo build --release
 ./target/release/manager
 ```
 
+### Rust for Wazuh
+```bash
+RUSTFLAGS="-C target-cpu=native" cargo build --release --features wazuh
+./target/release/manager
+```
 ### Python
 
 ```bash
