@@ -1,4 +1,5 @@
 # Incus-tools
+<img width="1255" height="479" alt="preview" src="https://github.com/user-attachments/assets/59b343f1-0d6e-4698-b8fa-5853609fae31" />
 
 A keyboard-driven Terminal UI (TUI) for managing [Incus](https://linuxcontainers.org/incus/) containers and VMs. Includes two implementations: a full-featured Rust version built with **ratatui** and a Python prototype using **curses**.
 
