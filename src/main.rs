@@ -1120,6 +1120,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             // 4. Wazuh build deps + MOTD (only with --features wazuh)
                             #[cfg(feature = "wazuh")]
                             {
+                                // Echo git clone instruction
+                                let _ = Command::new("incus")
+                                    .args([
+                                        "exec",
+                                        &name,
+                                        "--",
+                                        "echo",
+                                        "git clone https://github.com/wazuh/wazuh.git",
+                                    ])
+                                    .status();
+
                                 // Install build dependencies
                                 if distro_name.contains("Ubuntu") || distro_name.contains("Debian")
                                 {
@@ -1146,6 +1157,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             "libssl-dev",
                                             "procps",
                                             "build-essential",
+                                            "cmake",
+                                            "git",
                                         ])
                                         .status();
                                 } else if distro_name.contains("CentOS")
@@ -1174,6 +1187,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             "libtool",
                                             "openssl-devel",
                                             "procps-ng",
+                                            "cmake",
+                                            "git",
                                         ])
                                         .status();
                                 } else if distro_name.contains("openSUSE") {
@@ -1197,6 +1212,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             "libtool",
                                             "libopenssl-devel",
                                             "procps",
+                                            "cmake",
+                                            "git",
                                         ])
                                         .status();
                                 }
@@ -1221,6 +1238,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 );
                                 let _ = Command::new("incus")
                                     .args(["exec", &name, "--", "sh", "-c", &motd_cmd])
+                                    .status();
+
+                                // Echo quickstart commands
+                                let _ = Command::new("incus")
+                                    .args([
+                                        "exec",
+                                        &name,
+                                        "--",
+                                        "echo",
+                                        "curl -sO https://packages.wazuh.com/4.14/wazuh-install.sh && sudo bash ./wazuh-install.sh -a",
+                                    ])
                                     .status();
                             }
 

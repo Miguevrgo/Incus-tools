@@ -766,6 +766,18 @@ def handle_create(stdscr: curses.window) -> None:
 
     # Wazuh build deps + MOTD (only with --wazuh flag)
     if WAZUH_MODE:
+        # Echo git clone instruction
+        COMMANDS_TO_RUN.append(
+            [
+                "incus",
+                "exec",
+                INSTANCE_NAME,
+                "--",
+                "echo",
+                "git clone https://github.com/wazuh/wazuh.git",
+            ]
+        )
+
         if "Ubuntu" in SELECTED_DISTRO or "Debian" in SELECTED_DISTRO:
             COMMANDS_TO_RUN.append(
                 [
@@ -791,6 +803,8 @@ def handle_create(stdscr: curses.window) -> None:
                     "libssl-dev",
                     "procps",
                     "build-essential",
+                    "cmake",
+                    "git",
                 ]
             )
         elif any(
@@ -818,6 +832,8 @@ def handle_create(stdscr: curses.window) -> None:
                     "libtool",
                     "openssl-devel",
                     "procps-ng",
+                    "cmake",
+                    "git",
                 ]
             )
         elif "openSUSE" in SELECTED_DISTRO:
@@ -842,6 +858,8 @@ def handle_create(stdscr: curses.window) -> None:
                     "libtool",
                     "libopenssl-devel",
                     "procps",
+                    "cmake",
+                    "git",
                 ]
             )
 
@@ -861,6 +879,18 @@ def handle_create(stdscr: curses.window) -> None:
         MOTD_CMD = f"printf '{MOTD}' > /etc/motd"
         COMMANDS_TO_RUN.append(
             ["incus", "exec", INSTANCE_NAME, "--", "sh", "-c", MOTD_CMD]
+        )
+
+        # Echo quickstart commands
+        COMMANDS_TO_RUN.append(
+            [
+                "incus",
+                "exec",
+                INSTANCE_NAME,
+                "--",
+                "echo",
+                "curl -sO https://packages.wazuh.com/4.14/wazuh-install.sh && sudo bash ./wazuh-install.sh -a",
+            ]
         )
 
     COMMANDS_TO_RUN.append(["incus", "exec", INSTANCE_NAME, "--", "bash"])
